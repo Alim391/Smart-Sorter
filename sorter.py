@@ -1,7 +1,10 @@
 import os
+import time
 import shutil
+from watchdog.observers import Observer
+from watchdog.events import FileSystemEventHandler
 
-TARGET_DIR = "/Users/alim/Downloads"
+TARGET_DIR = "/Users/alim/Downloads"  # Укажите вашу папку
 
 EXTENSIONS_MAP = {
     "Images": [".jpg", ".jpeg", ".png", ".gif", ".svg", ".webp"],
@@ -11,46 +14,64 @@ EXTENSIONS_MAP = {
     "Media": [".mp4", ".mov", ".mp3", ".wav"],
 }
 
-def sort_files():
-    if not os.path.exists(TARGET_DIR):
-        print(f"Ошибка: папка {TARGET_DIR} не найдена.")
+def move_file(file_path):
+    time.sleep(1)
+    
+    if not os.path.exists(file_path):
         return
 
-    items = os.listdir(TARGET_DIR)
-    
-    moved_count = 0
+    if os.path.isdir(file_path):
+        return
 
-    for item in items:
-        item_path = os.path.join(TARGET_DIR, item)
+    _, ext = os.path.splitext(file_path)
+    ext = ext.lower()
 
-        if os.path.isdir(item_path):
-            continue
+    if not ext:
+        return
 
-        _, ext = os.path.splitext(item)
-        ext = ext.lower()
+    target_folder = None
+    for category, exts in EXTENSIONS_MAP.items():
+        if ext in exts:
+            target_folder = category
+            break
 
-        if not ext:
-            continue
+    if target_folder:
+        folder_path = os.path.join(TARGET_DIR, target_folder)
+        if not os.path.exists(folder_path):
+            os.makedirs(folder_path)
 
-        target_folder = None
-        for category, exts in EXTENSIONS_MAP.items():
-            if ext in exts:
-                target_folder = category
-                break
+        file_name = os.path.basename(file_path)
+        destination_path = os.path.join(folder_path, file_name)
 
-        if target_folder:
-            folder_path = os.path.join(TARGET_DIR, target_folder)
-            
-            if not os.path.exists(folder_path):
-                os.makedirs(folder_path)
+        try:
+            shutil.move(file_path, destination_path)
+            print(f"[Moved] {file_name} -> {target_folder}/")
+        except Exception as e:
+            print(f"Ошибка при перемещении {file_name}: {e}")
 
-            destination_path = os.path.join(folder_path, item)
-            
-            shutil.move(item_path, destination_path)
-            print(f"[Moved] {item} -> {target_folder}/")
-            moved_count += 1
-
-    print(f"\nСортировка завершена! Перемещено файлов: {moved_count}")
+class DownloadHandler(FileSystemEventHandler):
+    def on_created(self, event):
+        if not event.is_directory:
+            move_file(event.src_path)
 
 if __name__ == "__main__":
-    sort_files()
+    if not os.path.exists(TARGET_DIR):
+        print(f"Ошибка: папка {TARGET_DIR} не найдена.")
+        exit(1)
+
+    print(f"Запущен фоновый мониторинг папки: {TARGET_DIR}")
+    print("Для остановки нажмите Ctrl + C\n")
+
+    event_handler = DownloadHandler()
+    observer = Observer()
+    observer.schedule(event_handler, path=TARGET_DIR, recursive=False)
+    observer.start()
+
+    try:
+        while True:
+            time.sleep(1)
+    except KeyboardInterrupt:
+        observer.stop()
+        print("\nМониторинг остановлен.")
+    
+    observer.join()
