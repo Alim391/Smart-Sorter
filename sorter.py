@@ -13,6 +13,20 @@ EXTENSIONS_MAP = {
     "Code": [".py", ".js", ".html", ".css", ".cpp", ".json"],
     "Media": [".mp4", ".mov", ".mp3", ".wav"],
 }
+def get_unique_path(destination_path):
+  if not os.path.exists(destination_path):
+    return destination_path
+
+  folder, file_name = os.path.split(destination_path)
+  name, ext = os.path.splitext(file_name)
+  counter = 1
+
+  while True:
+    new_name = f"{name}_{counter}{ext}"
+    new_path = os.path.join(folder, new_name)
+    if not os.path.exists(new_path):
+      return new_path
+    counter += 1
 
 def move_file(file_path):
     time.sleep(1)
@@ -42,10 +56,12 @@ def move_file(file_path):
 
         file_name = os.path.basename(file_path)
         destination_path = os.path.join(folder_path, file_name)
+        destination_path = get_unique_path(destination_path)
 
         try:
             shutil.move(file_path, destination_path)
-            print(f"[Moved] {file_name} -> {target_folder}/")
+            final_name = os.path.basename(destination_path)
+            print(f"[Moved] {final_name} -> {target_folder}/")
         except Exception as e:
             print(f"Ошибка при перемещении {file_name}: {e}")
 
